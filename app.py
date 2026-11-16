@@ -35,28 +35,40 @@ if uploaded_file is not None:
                     st.error("Could not extract text from this PDF (it may be a scanned image).")
                     st.stop()
 
-                # Automatically pick an active text model enabled on your Groq account
-                models = [
-                    m.id for m in client.models.list().data
-                    if "whisper" not in m.id.lower()
-                    and "guard" not in m.id.lower()
-                    and "tts" not in m.id.lower()
-                ]
-                chosen_model = next(
-                    (m for m in models if "llama" in m.lower() or "8b" in m.lower() or "instant" in m.lower()),
-                    models[0],
-                )
-
                 prompt = f"Summarize the following PDF text as: {summary_style}. Keep it clear, accurate, and easy to scan.\n\n{pdf_text[:20000]}"
 
-                chat_completion = client.chat.completions.create(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=chosen_model,
-                )
+                # Build candidate models from your account, prioritizing standard chat models
+                available = [m.id for m in client.models.list().data]
+                preferred = [
+                    "llama-3.1-8b-instant",
+                    "llama-3.3-70b-versatile",
+                    "openai/gpt-oss-120b",
+                    "openai/gpt-oss-20b",
+                    "qwen/qwen3-32b",
+                ]
+                candidates = [m for m in preferred if m in available] + [
+                    m for m in available if m not in preferred
+                ]
 
-                summary = chat_completion.choices[0].message.content
-                st.subheader("Summary")
-                st.markdown(summary)
+                summary = None
+                last_error = None
+                for model_id in candidates:
+                    try:
+                        res = client.chat.completions.create(
+                            messages=[{"role": "user", "content": prompt}],
+                            model=model_id,
+                        )
+                        summary = res.choices.pop(0).message.content
+                        if summary:
+                            break
+                    except Exception as err:
+                        last_error = err
+
+                if summary:
+                    st.subheader("Summary")
+                    st.markdown(summary)
+                else:
+                    st.error(f"No working chat model found. Last error: {last_error}")
 
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
