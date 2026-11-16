@@ -35,7 +35,7 @@ if uploaded_file is not None:
                     st.error("Could not extract text from this PDF (it may be a scanned image).")
                     st.stop()
 
-                prompt = f"Summarize the following PDF text as: {summary_style}. Keep it clear, accurate, and easy to scan.\n\n{pdf_text[:25000]}"
+                prompt = f"Summarize the following PDF text as: {summary_style}. Keep it clear, accurate, and easy to scan.\n\n{pdf_text[:20000]}"
 
                 response = requests.post(
                     "https://groq.com",
@@ -49,11 +49,11 @@ if uploaded_file is not None:
                     },
                     timeout=60,
                 )
-                data = response.json()
 
                 if response.status_code != 200:
-                    st.error(f"API Error ({response.status_code}): {data}")
+                    st.error(f"API Error {response.status_code}: {response.text}")
                 else:
+                    data = response.json()
                     summary = data["choices"][0]["message"]["content"]
                     st.subheader("Summary")
                     st.markdown(summary)
