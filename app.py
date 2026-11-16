@@ -1,19 +1,17 @@
+from pypdf import PdfReader
+import requests
 import streamlit as st
-from google import genai
-from google.genai import types
 
 st.set_page_config(page_title="AI PDF Summarizer", page_icon="📄")
 st.title("📄 AI PDF Summarizer")
 st.write("Upload a PDF document to generate a clear, structured summary.")
 
-# Initialize the Gemini client using Streamlit Secrets
-if "GEMINI_API_KEY" not in st.secrets:
-    st.error("Missing GEMINI_API_KEY in Streamlit Secrets.")
+if "GROQ_API_KEY" not in st.secrets:
+    st.error("Missing GROQ_API_KEY in Streamlit Secrets.")
     st.stop()
 
-client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+api_key = st.secrets["GROQ_API_KEY"].strip()
 
-# File uploader and summary style selector
 uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
 summary_style = st.selectbox(
     "Select summary format:",
@@ -28,22 +26,37 @@ if uploaded_file is not None:
     if st.button("Summarize PDF"):
         with st.spinner("Reading and summarizing your PDF..."):
             try:
-                pdf_bytes = uploaded_file.read()
-                prompt = f"Summarize this PDF document as: {summary_style}. Keep it clear, accurate, and easy to scan."
+                reader = PdfReader(uploaded_file)
+                pdf_text = "\n".join(
+                    page.extract_text() or "" for page in reader.pages
+                ).strip()
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[
-                        types.Part.from_bytes(
-                            data=pdf_bytes,
-                            mime_type="application/pdf",
-                        ),
-                        prompt,
-                    ],
+                if not pdf_text:
+                    st.error("Could not extract text from this PDF (it may be a scanned image).")
+                    st.stop()
+
+                prompt = f"Summarize the following PDF text as: {summary_style}. Keep it clear, accurate, and easy to scan.\n\n{pdf_text[:25000]}"
+
+                response = requests.post(
+                    "https://groq.com",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                    timeout=60,
                 )
+                data = response.json()
 
-                st.subheader("Summary")
-                st.markdown(response.text)
+                if response.status_code != 200:
+                    st.error(f"API Error ({response.status_code}): {data}")
+                else:
+                    summary = data["choices"][0]["message"]["content"]
+                    st.subheader("Summary")
+                    st.markdown(summary)
 
             except Exception as e:
                 st.error(f"Something went wrong: {e}")
