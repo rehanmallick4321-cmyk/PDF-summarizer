@@ -37,7 +37,6 @@ if uploaded_file is not None:
 
                 prompt = f"Summarize the following PDF text as: {summary_style}. Keep it clear, accurate, and easy to scan.\n\n{pdf_text[:20000]}"
 
-                # Build candidate models from your account, prioritizing standard chat models
                 available = [m.id for m in client.models.list().data]
                 preferred = [
                     "llama-3.1-8b-instant",
@@ -67,6 +66,12 @@ if uploaded_file is not None:
                 if summary:
                     st.subheader("Summary")
                     st.markdown(summary)
+                    st.download_button(
+                        label="📥 Download Summary (.txt)",
+                        data=summary,
+                        file_name="summary.txt",
+                        mime="text/plain",
+                    )
                 else:
                     st.error(f"No working chat model found. Last error: {last_error}")
 
