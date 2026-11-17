@@ -95,7 +95,7 @@ with left_col:
 
         language = st.selectbox(
             "Output language",
-            ["English", "Hindi", "Spanish", "French"],
+            ["English", "German", "Hindi", "Spanish", "French", "Arabic", "Japanese"],
         )
 
         generate_btn = st.button("✨ Generate Summary")
